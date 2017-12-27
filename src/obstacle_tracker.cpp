@@ -70,8 +70,8 @@ bool ObstacleTracker::updateParams(std_srvs::Empty::Request &req, std_srvs::Empt
   nh_local_.param<bool>("copy_segments", p_copy_segments_, true);
 
   nh_local_.param<double>("loop_rate", p_loop_rate_, 100.0);
+  nh_local_.param<double>("sensor_rate", p_sensor_rate_, 15.0);
   p_sampling_time_ = 1.0 / p_loop_rate_;
-  p_sensor_rate_ = 10.0;    // 10 Hz for Hokuyo
 
   nh_local_.param<double>("tracking_duration", p_tracking_duration_, 2.0);
   nh_local_.param<double>("min_correspondence_cost", p_min_correspondence_cost_, 0.3);
@@ -402,8 +402,7 @@ bool ObstacleTracker::fissionObstaclesCorrespond(const int idx, const int jdx, c
           find(used_new.begin(), used_new.end(), jdx) == used_new.end());
 }
 
-void ObstacleTracker::fuseObstacles(const vector<int>& fusion_indices, const vector<int> &col_min_indices,
-                                    vector<TrackedObstacle>& new_tracked, const Obstacles::ConstPtr& new_obstacles) {
+void ObstacleTracker::fuseObstacles(const vector<int>& fusion_indices, const vector<int> &col_min_indices, vector<TrackedObstacle>& new_tracked, const Obstacles::ConstPtr& new_obstacles) {
   CircleObstacle c;
 
   double sum_var_x  = 0.0;
@@ -440,8 +439,7 @@ void ObstacleTracker::fuseObstacles(const vector<int>& fusion_indices, const vec
   new_tracked.push_back(to);
 }
 
-void ObstacleTracker::fissureObstacle(const vector<int>& fission_indices, const vector<int>& row_min_indices,
-                                      vector<TrackedObstacle>& new_tracked, const Obstacles::ConstPtr& new_obstacles) {
+void ObstacleTracker::fissureObstacle(const vector<int>& fission_indices, const vector<int>& row_min_indices, vector<TrackedObstacle>& new_tracked, const Obstacles::ConstPtr& new_obstacles) {
   // For each new obstacle taking part in fission create a tracked obstacle from the original old one and update it with the new one
   for (int idx : fission_indices) {
     TrackedObstacle to = tracked_obstacles_[row_min_indices[idx]];
