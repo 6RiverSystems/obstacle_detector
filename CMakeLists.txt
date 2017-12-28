@@ -3,12 +3,16 @@ project(obstacle_detector)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -fpermissive ${CMAKE_CXX_FLAGS} -Wfatal-errors\ ")
 
-find_package(catkin REQUIRED COMPONENTS roscpp roslaunch nodelet rviz std_msgs std_srvs geometry_msgs sensor_msgs tf laser_geometry message_generation)
+find_package(catkin REQUIRED COMPONENTS roscpp roslaunch nodelet rviz std_msgs std_srvs geometry_msgs sensor_msgs tf laser_geometry message_generation dynamic_reconfigure)
 find_package(Armadillo REQUIRED)
 find_package(Boost 1.54.0 REQUIRED system)
 
 add_message_files(FILES CircleObstacle.msg SegmentObstacle.msg Obstacles.msg)
 generate_messages(DEPENDENCIES std_msgs geometry_msgs)
+
+generate_dynamic_reconfigure_options(
+  cfg/Tracker.cfg
+)
 
 catkin_package(
   INCLUDE_DIRS include
@@ -60,6 +64,7 @@ add_library(${PROJECT_NAME}_nodelets
   src/nodelets/obstacle_extractor_nodelet.cpp
   src/nodelets/obstacle_tracker_nodelet.cpp
   src/nodelets/obstacle_publisher_nodelet.cpp)
+add_dependencies(${PROJECT_NAME}_nodelets ${PROJECT_NAME}_nodelets_gencfg)
 target_link_libraries(${PROJECT_NAME}_nodelets scans_merger obstacle_extractor obstacle_tracker obstacle_publisher)
 
 #

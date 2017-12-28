@@ -45,6 +45,9 @@ ObstacleTracker::ObstacleTracker(ros::NodeHandle& nh, ros::NodeHandle& nh_local)
   timer_ = nh_.createTimer(ros::Duration(1.0), &ObstacleTracker::timerCallback, this, false, false);
   params_srv_ = nh_local_.advertiseService("params", &ObstacleTracker::updateParams, this);
 
+  server_.reset(new dynamic_reconfigure::Server<obstacle_detector::TrackerConfig>(nh_local_));
+  server_->setCallback(boost::bind(&ObstacleTracker::reconfigureCb, this, _1, _2));
+
   initialize();
 }
 
@@ -118,6 +121,15 @@ bool ObstacleTracker::updateParams(std_srvs::Empty::Request &req, std_srvs::Empt
 void ObstacleTracker::timerCallback(const ros::TimerEvent&) {
   updateObstacles();
   publishObstacles();
+}
+
+void ObstacleTracker::reconfigureCb(obstacle_detector::TrackerConfig& config, uint32_t level)
+{
+  p_tracking_duration_ = config.tracking_duration;
+  p_min_correspondence_cost_ = config.min_correspondence_cost;
+  p_std_correspondence_dev_ = config.std_correspondence_dev;
+
+  TrackedObstacle::setCounterSize(static_cast<int>(p_loop_rate_ * p_tracking_duration_));
 }
 
 void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::ConstPtr new_obstacles) {
@@ -229,6 +241,8 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
     tracked_obstacles_.erase(tracked_obstacles_.begin() + idx);
 
   tracked_obstacles_.insert(tracked_obstacles_.end(), new_tracked_obstacles.begin(), new_tracked_obstacles.end());
+  //ROS_INFO("tracked obstacle size: %d to %lu", T, tracked_obstacles_.size());
+  //ROS_INFO("untracked obstalce size %d to %lu", U, new_untracked_obstacles.size());
 
   // Remove old untracked obstacles and save new ones
   untracked_obstacles_.clear();
