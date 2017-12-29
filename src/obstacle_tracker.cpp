@@ -141,24 +141,32 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
     obstacles_.segments.assign(new_obstacles->segments.begin(), new_obstacles->segments.end());
   }
 
+  // number of new obstacles extraced from current laserscan
   int N = new_obstacles->circles.size();
+  // number of tracked obstacles from previous iteration
   int T = tracked_obstacles_.size();
+  // number of untracked obstacles from previous iteration
   int U = untracked_obstacles_.size();
 
+  // for the first iteration, add all the new obstacles to untracked
   if (T + U == 0) {
     untracked_obstacles_.assign(new_obstacles->circles.begin(), new_obstacles->circles.end());
     return;
   }
 
+  // generate a #new-obstacles-by-#old-obstacles(T+U) matrix with calculated cost
   mat cost_matrix;
   calculateCostMatrix(new_obstacles->circles, cost_matrix);
 
+  // calculated a vector that indicates which OLD obstacle the NEW obstacle corresponds to
   vector<int> row_min_indices;
   calculateRowMinIndices(cost_matrix, row_min_indices);
 
+  // calculated a vector that indicates which NEW obstacle the OLD obstacle corresponds to
   vector<int> col_min_indices;
   calculateColMinIndices(cost_matrix, col_min_indices);
 
+  // vectors to track which old or new obstacle is already assigned
   vector<int> used_old_obstacles;
   vector<int> used_new_obstacles;
 
@@ -166,7 +174,11 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
   vector<CircleObstacle> new_untracked_obstacles;
 
   // Check for fusion (only tracked obstacles)
+  // find two old obstacles correspond to SAME new obstacle
   for (int i = 0; i < T-1; ++i) {
+    // for each old tracked obstacle, skip if no correspondance for new obstacle
+    // or the old obstacle is already used or the corresponding new obstalce is used
+    // No duplicate assignment
     if (fusionObstacleUsed(i, col_min_indices, used_new_obstacles, used_old_obstacles))
       continue;
 
@@ -178,6 +190,7 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
         fusion_indices.push_back(j);
     }
 
+    // find fusion obstacles
     if (fusion_indices.size() > 1) {
       fuseObstacles(fusion_indices, col_min_indices, new_tracked_obstacles, new_obstacles);
 
@@ -188,6 +201,7 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
   }
 
   // Check for fission (only tracked obstacles)
+  // for each new obstacles, find if they both correspond to SAME old obstacle
   for (int i = 0; i < N-1; ++i) {
     if (fissionObstacleUsed(i, T, row_min_indices, used_new_obstacles, used_old_obstacles))
       continue;
@@ -210,6 +224,7 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
   }
 
   // Check for other possibilities
+  // for each new obstacles
   for (int n = 0; n < N; ++n) {
     if (find(used_new_obstacles.begin(), used_new_obstacles.end(), n) != used_new_obstacles.end())
       continue;
@@ -217,10 +232,13 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
     if (row_min_indices[n] == -1) {
       new_untracked_obstacles.push_back(new_obstacles->circles[n]);
     }
+    // if the new obstalce corresponds to an old obstalce which is not assigned
     else if (find(used_old_obstacles.begin(), used_old_obstacles.end(), row_min_indices[n]) == used_old_obstacles.end()) {
+      // if the corresponding old obstalce is a tracked one but not fusion or fission
       if (row_min_indices[n] >= 0 && row_min_indices[n] < T) {
         tracked_obstacles_[row_min_indices[n]].correctState(new_obstacles->circles[n]);
       }
+      // if the corresponding old obstalce is an untracked one
       else if (row_min_indices[n] >= T) {
         TrackedObstacle to(untracked_obstacles_[row_min_indices[n] - T]);
         to.correctState(new_obstacles->circles[n]);
@@ -234,15 +252,23 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
     }
   }
 
+  // deprecate tracked obstacle which has no corresponding new obstacle
+  for (int i = 0; i < T-1; ++i) {
+    if (deprecateTrackedObstacle(i, col_min_indices, used_old_obstacles))
+    {
+      ROS_INFO("Deprecate a tracked obstacle with %d", col_min_indices[i]);
+      used_old_obstacles.push_back(i);
+    }
+  }
+
   // Remove tracked obstacles that are no longer existent due to fusion or fission and insert new ones
   // Sort in descending order to remove from back of the list
   sort(used_old_obstacles.rbegin(), used_old_obstacles.rend());
   for (int idx : used_old_obstacles)
     tracked_obstacles_.erase(tracked_obstacles_.begin() + idx);
 
+
   tracked_obstacles_.insert(tracked_obstacles_.end(), new_tracked_obstacles.begin(), new_tracked_obstacles.end());
-  //ROS_INFO("tracked obstacle size: %d to %lu", T, tracked_obstacles_.size());
-  //ROS_INFO("untracked obstalce size %d to %lu", U, new_untracked_obstacles.size());
 
   // Remove old untracked obstacles and save new ones
   untracked_obstacles_.clear();
@@ -464,6 +490,16 @@ void ObstacleTracker::fissureObstacle(const vector<int>& fission_indices, const 
     new_tracked.push_back(to);
   }
 }
+
+bool ObstacleTracker::deprecateTrackedObstacle(const int idx, const vector<int> &col_min_indices, const vector<int> &used_old) {
+  /*
+   * This function returns true if:
+   * - idx-th old obstacle has not used and no corresponding new obstacle
+   */
+
+  return (find(used_old.begin(), used_old.end(), idx) == used_old.end() && col_min_indices[idx] < 0);
+}
+
 
 void ObstacleTracker::updateObstacles() {
   for (int i = 0; i < tracked_obstacles_.size(); ++i) {

@@ -77,6 +77,8 @@ private:
   void fissureObstacle(const std::vector<int>& fission_indices, const std::vector<int>& row_min_indices,
                        std::vector<TrackedObstacle>& new_tracked, const Obstacles::ConstPtr& new_obstacles);
 
+  bool deprecateTrackedObstacle(const int idx, const std::vector<int> &col_min_indices, const std::vector<int> &used_old);
+
   void updateObstacles();
   void publishObstacles();
 
