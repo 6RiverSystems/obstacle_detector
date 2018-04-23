@@ -96,7 +96,7 @@ bool ObstacleTracker::updateParams(std_srvs::Empty::Request &req, std_srvs::Empt
   if (p_active_ != prev_active) {
     if (p_active_) {
       obstacles_sub_ = nh_.subscribe("raw_obstacles", 10, &ObstacleTracker::obstaclesCallback, this);
-      obstacles_pub_ = nh_.advertise<obstacle_detector::Obstacles>("tracked_obstacles", 10);
+      obstacles_pub_ = nh_.advertise<obstacle_detector::Obstacles>("obstacles", 10);
       timer_.start();
     }
     else {
