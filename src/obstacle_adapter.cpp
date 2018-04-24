@@ -56,7 +56,7 @@ void ObstacleAdapter::publishObstaclesCallback(const obstacle_detector::Obstacle
     srslib_framework::CircularObstacle circularObstacle;
     circularObstacle.center = obstacles->circles[i].center;
     circularObstacle.velocity = obstacles->circles[i].velocity;
-    circularObstacle.radius = obstacles->circles[i].radius;
+    circularObstacle.radius = obstacles->circles[i].true_radius;
 
     obstacles_msg->trackingObstacles.push_back(circularObstacle);
   }
