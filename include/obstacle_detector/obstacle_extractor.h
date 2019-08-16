@@ -102,7 +102,7 @@ private:
   bool p_circles_from_visibles_;
   bool p_discard_converted_segments_;
   bool p_transform_coordinates_;
-
+  bool p_filter_by_distance_;
   int p_min_group_points_;
 
   double p_distance_proportion_;

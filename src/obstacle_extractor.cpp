@@ -71,7 +71,7 @@ ObstacleExtractor::~ObstacleExtractor() {
   nh_local_.deleteParam("max_x_limit");
   nh_local_.deleteParam("min_y_limit");
   nh_local_.deleteParam("max_y_limit");
-
+  nh_local_.deleteParam("filter_by_distance");
   nh_local_.deleteParam("frame_id");
 }
 
@@ -101,7 +101,7 @@ bool ObstacleExtractor::updateParams(std_srvs::Empty::Request &req, std_srvs::Em
   nh_local_.param<double>("max_x_limit", p_max_x_limit_,  10.0);
   nh_local_.param<double>("min_y_limit", p_min_y_limit_, -10.0);
   nh_local_.param<double>("max_y_limit", p_max_y_limit_,  10.0);
-
+  nh_local_.param<bool>("filter_by_distance", p_filter_by_distance_, false);
   nh_local_.param<string>("frame_id", p_frame_id_, "map");
 
   if (p_active_ != prev_active) {
@@ -444,19 +444,34 @@ void ObstacleExtractor::publishObstacles() {
   }
 
   for (const Circle& c : circles_) {
-    if (c.center.x > p_min_x_limit_ && c.center.x < p_max_x_limit_ &&
-        c.center.y > p_min_y_limit_ && c.center.y < p_max_y_limit_) {
-        CircleObstacle circle;
+      if (p_filter_by_distance_)
+      {
+          if (c.center.x > p_min_x_limit_ && c.center.x < p_max_x_limit_ &&
+              c.center.y > p_min_y_limit_ && c.center.y < p_max_y_limit_)
+          {
+              CircleObstacle circle;
 
-        circle.center.x = c.center.x;
-        circle.center.y = c.center.y;
-        circle.velocity.x = 0.0;
-        circle.velocity.y = 0.0;
-        circle.radius = c.radius;
-        circle.true_radius = c.radius - p_radius_enlargement_;
+              circle.center.x = c.center.x;
+              circle.center.y = c.center.y;
+              circle.velocity.x = 0.0;
+              circle.velocity.y = 0.0;
+              circle.radius = c.radius;
+              circle.true_radius = c.radius - p_radius_enlargement_;
 
-        obstacles_msg->circles.push_back(circle);
-    }
+              obstacles_msg->circles.push_back(circle);
+          }
+      } else {
+          CircleObstacle circle;
+
+          circle.center.x = c.center.x;
+          circle.center.y = c.center.y;
+          circle.velocity.x = 0.0;
+          circle.velocity.y = 0.0;
+          circle.radius = c.radius;
+          circle.true_radius = c.radius - p_radius_enlargement_;
+
+          obstacles_msg->circles.push_back(circle);
+      }
   }
 
   obstacles_pub_.publish(obstacles_msg);
