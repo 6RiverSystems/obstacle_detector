@@ -53,18 +53,6 @@ ObstacleTracker::ObstacleTracker(ros::NodeHandle& nh, ros::NodeHandle& nh_local)
 }
 
 ObstacleTracker::~ObstacleTracker() {
-  nh_local_.deleteParam("active");
-  nh_local_.deleteParam("copy_segments");
-
-  nh_local_.deleteParam("loop_rate");
-  nh_local_.deleteParam("tracking_duration");
-  nh_local_.deleteParam("min_correspondence_cost");
-  nh_local_.deleteParam("std_correspondence_dev");
-  nh_local_.deleteParam("process_variance");
-  nh_local_.deleteParam("process_rate_variance");
-  nh_local_.deleteParam("measurement_variance");
-
-  nh_local_.deleteParam("frame_id");
 }
 
 bool ObstacleTracker::updateParams(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res) {

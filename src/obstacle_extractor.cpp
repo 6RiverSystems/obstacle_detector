@@ -48,31 +48,6 @@ ObstacleExtractor::ObstacleExtractor(ros::NodeHandle& nh, ros::NodeHandle& nh_lo
 }
 
 ObstacleExtractor::~ObstacleExtractor() {
-  nh_local_.deleteParam("active");
-  nh_local_.deleteParam("use_scan");
-  nh_local_.deleteParam("use_pcl");
-
-  nh_local_.deleteParam("use_split_and_merge");
-  nh_local_.deleteParam("circles_from_visibles");
-  nh_local_.deleteParam("discard_converted_segments");
-  nh_local_.deleteParam("transform_coordinates");
-
-  nh_local_.deleteParam("min_group_points");
-
-  nh_local_.deleteParam("max_group_distance");
-  nh_local_.deleteParam("distance_proportion");
-  nh_local_.deleteParam("max_split_distance");
-  nh_local_.deleteParam("max_merge_separation");
-  nh_local_.deleteParam("max_merge_spread");
-  nh_local_.deleteParam("max_circle_radius");
-  nh_local_.deleteParam("radius_enlargement");
-
-  nh_local_.deleteParam("min_x_limit");
-  nh_local_.deleteParam("max_x_limit");
-  nh_local_.deleteParam("min_y_limit");
-  nh_local_.deleteParam("max_y_limit");
-  nh_local_.deleteParam("filter_by_distance");
-  nh_local_.deleteParam("frame_id");
 }
 
 bool ObstacleExtractor::updateParams(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res) {
