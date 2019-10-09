@@ -44,7 +44,7 @@ using namespace obstacle_detector;
 
 ObstacleAdapter::ObstacleAdapter(ros::NodeHandle& nh, ros::NodeHandle& nh_local) : nh_(nh), nh_local_(nh_local) {
   obstacles_sub_ = nh_.subscribe("obstacles", 10, &ObstacleAdapter::publishObstaclesCallback, this);
-  obstacles_pub_ = nh_.advertise<costmap_converter::ObstacleArrayMsg>("tracked_obstacles", 10);
+  obstacles_pub_ = nh_.advertise<costmap_converter::ObstacleArrayMsg>("/custom_obstacles", 10);
 }
 
 ObstacleAdapter::~ObstacleAdapter() {
