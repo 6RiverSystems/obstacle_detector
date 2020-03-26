@@ -73,7 +73,7 @@ add_library(${PROJECT_NAME}_nodelets
   src/nodelets/obstacle_tracker_nodelet.cpp
   src/nodelets/obstacle_publisher_nodelet.cpp
   src/nodelets/obstacle_adapter_nodelet.cpp)
-add_dependencies(${PROJECT_NAME}_nodelets ${PROJECT_NAME}_nodelets_gencfg)
+add_dependencies(${PROJECT_NAME}_nodelets ${${PROJECT_NAME}_nodelets_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME}_nodelets scans_merger obstacle_extractor obstacle_tracker obstacle_publisher obstacle_adapter)
 
 #
