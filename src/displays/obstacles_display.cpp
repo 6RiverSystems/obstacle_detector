@@ -128,6 +128,6 @@ void ObstaclesDisplay::processMessage(const obstacle_detector::Obstacles::ConstP
 
 } // end namespace obstacles_display
 
-#include <pluginlib/class_list_macros.h>
+#include <pluginlib/class_list_macros.hpp>
 PLUGINLIB_EXPORT_CLASS(obstacles_display::ObstaclesDisplay, rviz::Display)
 

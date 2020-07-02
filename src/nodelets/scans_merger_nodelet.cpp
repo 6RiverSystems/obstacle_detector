@@ -70,5 +70,5 @@ private:
 
 } // namespace obstacle_detector
 
-#include <pluginlib/class_list_macros.h>
+#include <pluginlib/class_list_macros.hpp>
 PLUGINLIB_EXPORT_CLASS(obstacle_detector::ScansMergerNodelet, nodelet::Nodelet)

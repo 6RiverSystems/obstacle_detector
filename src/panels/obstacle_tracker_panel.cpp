@@ -224,5 +224,5 @@ void ObstacleTrackerPanel::load(const rviz::Config& config) {
   rviz::Panel::load(config);
 }
 
-#include <pluginlib/class_list_macros.h>
+#include <pluginlib/class_list_macros.hpp>
 PLUGINLIB_EXPORT_CLASS(obstacle_detector::ObstacleTrackerPanel, rviz::Panel)
