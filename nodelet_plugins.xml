@@ -32,4 +32,12 @@
     </description>
   </class>
 
+  <class name="obstacle_detector/ObstacleAdapter"
+         type="obstacle_detector::ObstacleAdapterNodelet"
+         base_class_type="nodelet::Nodelet">
+    <description>
+      Obstacle Adapter Nodelet
+    </description>
+  </class>
+
 </library>

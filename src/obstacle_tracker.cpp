@@ -45,22 +45,14 @@ ObstacleTracker::ObstacleTracker(ros::NodeHandle& nh, ros::NodeHandle& nh_local)
   timer_ = nh_.createTimer(ros::Duration(1.0), &ObstacleTracker::timerCallback, this, false, false);
   params_srv_ = nh_local_.advertiseService("params", &ObstacleTracker::updateParams, this);
 
+  // add dynamic reconfiguration server
+  server_.reset(new dynamic_reconfigure::Server<obstacle_detector::TrackerConfig>(nh_local_));
+  server_->setCallback(boost::bind(&ObstacleTracker::reconfigureCb, this, _1, _2));
+
   initialize();
 }
 
 ObstacleTracker::~ObstacleTracker() {
-  nh_local_.deleteParam("active");
-  nh_local_.deleteParam("copy_segments");
-
-  nh_local_.deleteParam("loop_rate");
-  nh_local_.deleteParam("tracking_duration");
-  nh_local_.deleteParam("min_correspondence_cost");
-  nh_local_.deleteParam("std_correspondence_dev");
-  nh_local_.deleteParam("process_variance");
-  nh_local_.deleteParam("process_rate_variance");
-  nh_local_.deleteParam("measurement_variance");
-
-  nh_local_.deleteParam("frame_id");
 }
 
 bool ObstacleTracker::updateParams(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res) {
@@ -70,8 +62,8 @@ bool ObstacleTracker::updateParams(std_srvs::Empty::Request &req, std_srvs::Empt
   nh_local_.param<bool>("copy_segments", p_copy_segments_, true);
 
   nh_local_.param<double>("loop_rate", p_loop_rate_, 100.0);
+  nh_local_.param<double>("sensor_rate", p_sensor_rate_, 15.0);
   p_sampling_time_ = 1.0 / p_loop_rate_;
-  p_sensor_rate_ = 10.0;    // 10 Hz for Hokuyo
 
   nh_local_.param<double>("tracking_duration", p_tracking_duration_, 2.0);
   nh_local_.param<double>("min_correspondence_cost", p_min_correspondence_cost_, 0.3);
@@ -92,7 +84,7 @@ bool ObstacleTracker::updateParams(std_srvs::Empty::Request &req, std_srvs::Empt
   if (p_active_ != prev_active) {
     if (p_active_) {
       obstacles_sub_ = nh_.subscribe("raw_obstacles", 10, &ObstacleTracker::obstaclesCallback, this);
-      obstacles_pub_ = nh_.advertise<obstacle_detector::Obstacles>("tracked_obstacles", 10);
+      obstacles_pub_ = nh_.advertise<obstacle_detector::Obstacles>("obstacles", 10);
       timer_.start();
     }
     else {
@@ -120,6 +112,15 @@ void ObstacleTracker::timerCallback(const ros::TimerEvent&) {
   publishObstacles();
 }
 
+void ObstacleTracker::reconfigureCb(obstacle_detector::TrackerConfig& config, uint32_t level)
+{
+  p_tracking_duration_ = config.tracking_duration;
+  p_min_correspondence_cost_ = config.min_correspondence_cost;
+  p_std_correspondence_dev_ = config.std_correspondence_dev;
+
+  TrackedObstacle::setCounterSize(static_cast<int>(p_loop_rate_ * p_tracking_duration_));
+}
+
 void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::ConstPtr new_obstacles) {
   if (new_obstacles->circles.size() > 0)
     radius_margin_ = new_obstacles->circles[0].radius - new_obstacles->circles[0].true_radius;
@@ -129,8 +130,11 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
     obstacles_.segments.assign(new_obstacles->segments.begin(), new_obstacles->segments.end());
   }
 
+  // number of new obstacles extraced from current laserscan
   int N = new_obstacles->circles.size();
+  // number of tracked obstacles from previous laserscan
   int T = tracked_obstacles_.size();
+  // number of untracked obstacles from previous laserscan
   int U = untracked_obstacles_.size();
 
   if (T + U == 0) {
@@ -141,12 +145,15 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
   mat cost_matrix;
   calculateCostMatrix(new_obstacles->circles, cost_matrix);
 
+  // calculated a vector indicating which OLD obs has the lowest cost to each NEW obs
   vector<int> row_min_indices;
   calculateRowMinIndices(cost_matrix, row_min_indices);
 
+  // calculated a vector indicating which NEW obs has the lowest cost to each OLD obs
   vector<int> col_min_indices;
   calculateColMinIndices(cost_matrix, col_min_indices);
 
+  // vectors to mark which old and new obs is already assigned (avoid duplicate)
   vector<int> used_old_obstacles;
   vector<int> used_new_obstacles;
 
@@ -154,6 +161,7 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
   vector<CircleObstacle> new_untracked_obstacles;
 
   // Check for fusion (only tracked obstacles)
+  // find OLD obstacles correspond to SAME NEW obstacle
   for (int i = 0; i < T-1; ++i) {
     if (fusionObstacleUsed(i, col_min_indices, used_new_obstacles, used_old_obstacles))
       continue;
@@ -176,6 +184,7 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
   }
 
   // Check for fission (only tracked obstacles)
+  // find NEW obstacles correspond to SAME OLD obstacle
   for (int i = 0; i < N-1; ++i) {
     if (fissionObstacleUsed(i, T, row_min_indices, used_new_obstacles, used_old_obstacles))
       continue;
@@ -191,7 +200,6 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
     if (fission_indices.size() > 1) {
       fissureObstacle(fission_indices, row_min_indices, new_tracked_obstacles, new_obstacles);
 
-      // Mark used old and new obstacles
       used_old_obstacles.push_back(row_min_indices[i]);
       used_new_obstacles.insert(used_new_obstacles.end(), fission_indices.begin(), fission_indices.end());
     }
@@ -222,11 +230,20 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
     }
   }
 
+  // deprecate tracked obstacle which has no corresponding new obstacle
+  for (int i = 0; i < T-1; ++i) {
+    if (deprecateTrackedObstacle(i, col_min_indices, used_old_obstacles))
+    {
+      used_old_obstacles.push_back(i);
+    }
+  }
+
   // Remove tracked obstacles that are no longer existent due to fusion or fission and insert new ones
   // Sort in descending order to remove from back of the list
   sort(used_old_obstacles.rbegin(), used_old_obstacles.rend());
   for (int idx : used_old_obstacles)
     tracked_obstacles_.erase(tracked_obstacles_.begin() + idx);
+
 
   tracked_obstacles_.insert(tracked_obstacles_.end(), new_tracked_obstacles.begin(), new_tracked_obstacles.end());
 
@@ -402,8 +419,7 @@ bool ObstacleTracker::fissionObstaclesCorrespond(const int idx, const int jdx, c
           find(used_new.begin(), used_new.end(), jdx) == used_new.end());
 }
 
-void ObstacleTracker::fuseObstacles(const vector<int>& fusion_indices, const vector<int> &col_min_indices,
-                                    vector<TrackedObstacle>& new_tracked, const Obstacles::ConstPtr& new_obstacles) {
+void ObstacleTracker::fuseObstacles(const vector<int>& fusion_indices, const vector<int> &col_min_indices, vector<TrackedObstacle>& new_tracked, const Obstacles::ConstPtr& new_obstacles) {
   CircleObstacle c;
 
   double sum_var_x  = 0.0;
@@ -440,8 +456,7 @@ void ObstacleTracker::fuseObstacles(const vector<int>& fusion_indices, const vec
   new_tracked.push_back(to);
 }
 
-void ObstacleTracker::fissureObstacle(const vector<int>& fission_indices, const vector<int>& row_min_indices,
-                                      vector<TrackedObstacle>& new_tracked, const Obstacles::ConstPtr& new_obstacles) {
+void ObstacleTracker::fissureObstacle(const vector<int>& fission_indices, const vector<int>& row_min_indices, vector<TrackedObstacle>& new_tracked, const Obstacles::ConstPtr& new_obstacles) {
   // For each new obstacle taking part in fission create a tracked obstacle from the original old one and update it with the new one
   for (int idx : fission_indices) {
     TrackedObstacle to = tracked_obstacles_[row_min_indices[idx]];
@@ -451,6 +466,15 @@ void ObstacleTracker::fissureObstacle(const vector<int>& fission_indices, const 
 
     new_tracked.push_back(to);
   }
+}
+
+bool ObstacleTracker::deprecateTrackedObstacle(const int idx, const vector<int> &col_min_indices, const vector<int> &used_old) {
+  /*
+   * This function returns true if:
+   * - idx-th old obstacle has not used and no corresponding new obstacle
+   */
+
+  return (find(used_old.begin(), used_old.end(), idx) == used_old.end() && col_min_indices[idx] < 0);
 }
 
 void ObstacleTracker::updateObstacles() {

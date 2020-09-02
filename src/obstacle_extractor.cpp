@@ -42,37 +42,12 @@ using namespace obstacle_detector;
 
 ObstacleExtractor::ObstacleExtractor(ros::NodeHandle& nh, ros::NodeHandle& nh_local) : nh_(nh), nh_local_(nh_local) {
   p_active_ = false;
-
+  p_filter_by_distance_ = false;
   params_srv_ = nh_local_.advertiseService("params", &ObstacleExtractor::updateParams, this);
   initialize();
 }
 
 ObstacleExtractor::~ObstacleExtractor() {
-  nh_local_.deleteParam("active");
-  nh_local_.deleteParam("use_scan");
-  nh_local_.deleteParam("use_pcl");
-
-  nh_local_.deleteParam("use_split_and_merge");
-  nh_local_.deleteParam("circles_from_visibles");
-  nh_local_.deleteParam("discard_converted_segments");
-  nh_local_.deleteParam("transform_coordinates");
-
-  nh_local_.deleteParam("min_group_points");
-
-  nh_local_.deleteParam("max_group_distance");
-  nh_local_.deleteParam("distance_proportion");
-  nh_local_.deleteParam("max_split_distance");
-  nh_local_.deleteParam("max_merge_separation");
-  nh_local_.deleteParam("max_merge_spread");
-  nh_local_.deleteParam("max_circle_radius");
-  nh_local_.deleteParam("radius_enlargement");
-
-  nh_local_.deleteParam("min_x_limit");
-  nh_local_.deleteParam("max_x_limit");
-  nh_local_.deleteParam("min_y_limit");
-  nh_local_.deleteParam("max_y_limit");
-
-  nh_local_.deleteParam("frame_id");
 }
 
 bool ObstacleExtractor::updateParams(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res) {
@@ -101,7 +76,7 @@ bool ObstacleExtractor::updateParams(std_srvs::Empty::Request &req, std_srvs::Em
   nh_local_.param<double>("max_x_limit", p_max_x_limit_,  10.0);
   nh_local_.param<double>("min_y_limit", p_min_y_limit_, -10.0);
   nh_local_.param<double>("max_y_limit", p_max_y_limit_,  10.0);
-
+  nh_local_.param<bool>("filter_by_distance", p_filter_by_distance_, false);
   nh_local_.param<string>("frame_id", p_frame_id_, "map");
 
   if (p_active_ != prev_active) {
@@ -444,19 +419,34 @@ void ObstacleExtractor::publishObstacles() {
   }
 
   for (const Circle& c : circles_) {
-    if (c.center.x > p_min_x_limit_ && c.center.x < p_max_x_limit_ &&
-        c.center.y > p_min_y_limit_ && c.center.y < p_max_y_limit_) {
-        CircleObstacle circle;
+      if (p_filter_by_distance_)
+      {
+          if (c.center.x > p_min_x_limit_ && c.center.x < p_max_x_limit_ &&
+              c.center.y > p_min_y_limit_ && c.center.y < p_max_y_limit_)
+          {
+              CircleObstacle circle;
 
-        circle.center.x = c.center.x;
-        circle.center.y = c.center.y;
-        circle.velocity.x = 0.0;
-        circle.velocity.y = 0.0;
-        circle.radius = c.radius;
-        circle.true_radius = c.radius - p_radius_enlargement_;
+              circle.center.x = c.center.x;
+              circle.center.y = c.center.y;
+              circle.velocity.x = 0.0;
+              circle.velocity.y = 0.0;
+              circle.radius = c.radius;
+              circle.true_radius = c.radius - p_radius_enlargement_;
 
-        obstacles_msg->circles.push_back(circle);
-    }
+              obstacles_msg->circles.push_back(circle);
+          }
+      } else {
+          CircleObstacle circle;
+
+          circle.center.x = c.center.x;
+          circle.center.y = c.center.y;
+          circle.velocity.x = 0.0;
+          circle.velocity.y = 0.0;
+          circle.radius = c.radius;
+          circle.true_radius = c.radius - p_radius_enlargement_;
+
+          obstacles_msg->circles.push_back(circle);
+      }
   }
 
   obstacles_pub_.publish(obstacles_msg);

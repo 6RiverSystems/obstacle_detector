@@ -41,6 +41,8 @@
 #include <armadillo>
 #include <std_srvs/Empty.h>
 #include <obstacle_detector/Obstacles.h>
+#include <obstacle_detector/TrackerConfig.h>
+#include <dynamic_reconfigure/server.h>
 
 #include "obstacle_detector/utilities/tracked_obstacle.h"
 #include "obstacle_detector/utilities/math_utilities.h"
@@ -75,8 +77,12 @@ private:
   void fissureObstacle(const std::vector<int>& fission_indices, const std::vector<int>& row_min_indices,
                        std::vector<TrackedObstacle>& new_tracked, const Obstacles::ConstPtr& new_obstacles);
 
+  bool deprecateTrackedObstacle(const int idx, const std::vector<int> &col_min_indices, const std::vector<int> &used_old);
+
   void updateObstacles();
   void publishObstacles();
+
+  void reconfigureCb(obstacle_detector::TrackerConfig& config, uint32_t level);
 
   ros::NodeHandle nh_;
   ros::NodeHandle nh_local_;
@@ -85,6 +91,7 @@ private:
   ros::Publisher obstacles_pub_;
   ros::ServiceServer params_srv_;
   ros::Timer timer_;
+  boost::shared_ptr<dynamic_reconfigure::Server<obstacle_detector::TrackerConfig>> server_;
 
   double radius_margin_;
   obstacle_detector::Obstacles obstacles_;

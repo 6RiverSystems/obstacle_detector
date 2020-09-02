@@ -53,22 +53,6 @@ ScansMerger::ScansMerger(ros::NodeHandle& nh, ros::NodeHandle& nh_local) : nh_(n
 }
 
 ScansMerger::~ScansMerger() {
-  nh_local_.deleteParam("active");
-  nh_local_.deleteParam("publish_scan");
-  nh_local_.deleteParam("publish_pcl");
-
-  nh_local_.deleteParam("ranges_num");
-
-  nh_local_.deleteParam("min_scanner_range");
-  nh_local_.deleteParam("max_scanner_range");
-
-  nh_local_.deleteParam("min_x_range");
-  nh_local_.deleteParam("max_x_range");
-  nh_local_.deleteParam("min_y_range");
-  nh_local_.deleteParam("max_y_range");
-
-  nh_local_.deleteParam("fixed_frame_id");
-  nh_local_.deleteParam("target_frame_id");
 }
 
 bool ScansMerger::updateParams(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res) {
