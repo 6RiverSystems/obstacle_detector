@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Software License Agreement (BSD License)
  *
  * Copyright (c) 2017, Poznan University of Technology
@@ -131,6 +131,7 @@ void ObstacleExtractor::pclCallback(const sensor_msgs::PointCloud::ConstPtr pcl_
 }
 
 void ObstacleExtractor::processPoints() {
+  prev_segments_ = move(segments_);
   segments_.clear();
   circles_.clear();
 

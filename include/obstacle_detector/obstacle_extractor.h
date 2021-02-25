@@ -91,6 +91,7 @@ private:
 
   std::list<Point> input_points_;
   std::list<Segment> segments_;
+  std::list<Segment> prev_segments_;
   std::list<Circle> circles_;
 
   // Parameters
