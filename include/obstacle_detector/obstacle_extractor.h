@@ -117,6 +117,7 @@ private:
   double p_radius_enlargement_;
   double p_shrink_end_dist_;
   double p_shrink_colinear_dist_;
+  double p_shrink_between_tol_;
 
   double p_min_x_limit_;
   double p_max_x_limit_;

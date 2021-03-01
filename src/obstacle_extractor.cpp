@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Software License Agreement (BSD License)
  *
  * Copyright (c) 2017, Poznan University of Technology
@@ -74,6 +74,7 @@ bool ObstacleExtractor::updateParams(std_srvs::Empty::Request &req, std_srvs::Em
   nh_local_.param<double>("radius_enlargement", p_radius_enlargement_, 0.25);
   nh_local_.param<double>("shrink_end_dist", p_shrink_end_dist_, 0.05);
   nh_local_.param<double>("shrink_colinear_dist", p_shrink_colinear_dist_, 0.1);
+  nh_local_.param<double>("shrink_between_tol", p_shrink_between_tol_, 0.05);
 
   nh_local_.param<double>("min_x_limit", p_min_x_limit_, -10.0);
   nh_local_.param<double>("max_x_limit", p_max_x_limit_,  10.0);
@@ -318,7 +319,7 @@ bool ObstacleExtractor::checkSegmentShrinking(const Segment& segment, const tf::
         (segment_transformed.last_point - s.last_point).length() < p_shrink_end_dist_)
           to_check_for_colinearity.push_back(&segment_transformed.first_point);
     for (auto p : to_check_for_colinearity) {
-      if (s.distanceTo(*p) < p_shrink_colinear_dist_)
+        if (s.distanceTo(*p) < p_shrink_colinear_dist_ && s.isBetweenEndpoints(*p, p_shrink_between_tol_))
         return true;
     }  
   }

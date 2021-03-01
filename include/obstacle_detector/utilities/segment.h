@@ -107,6 +107,15 @@ public:
     return (p - projection).length();
   }
 
+  bool isBetweenEndpoints(const Point& p, double tol) const {
+    // Checks if point is between segment endpings within a buffer of 5% to account for noise
+    Point a = last_point - first_point;
+    Point b = p - first_point;
+    Point c = p - last_point;
+    double t = a.dot(b) / a.lengthSquared();
+    return t > 0.0-tol && t < 1.0+tol;
+  }
+
 
   friend std::ostream& operator<<(std::ostream& out, const Segment& s) {
     out << "p1: " << s.first_point << ", p2: " << s.last_point;
