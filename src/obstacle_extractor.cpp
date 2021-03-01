@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Software License Agreement (BSD License)
  *
  * Copyright (c) 2017, Poznan University of Technology
@@ -72,6 +72,7 @@ bool ObstacleExtractor::updateParams(std_srvs::Empty::Request &req, std_srvs::Em
   nh_local_.param<double>("max_merge_spread", p_max_merge_spread_, 0.2);
   nh_local_.param<double>("max_circle_radius", p_max_circle_radius_, 0.6);
   nh_local_.param<double>("radius_enlargement", p_radius_enlargement_, 0.25);
+  nh_local_.param<double>("prev_seg_buffer_size", p_prev_seg_buffer_size_, 3);
   nh_local_.param<double>("shrink_end_dist", p_shrink_end_dist_, 0.05);
   nh_local_.param<double>("shrink_colinear_dist", p_shrink_colinear_dist_, 0.1);
   nh_local_.param<double>("shrink_between_tol", p_shrink_between_tol_, 0.05);
@@ -135,7 +136,10 @@ void ObstacleExtractor::pclCallback(const sensor_msgs::PointCloud::ConstPtr pcl_
 }
 
 void ObstacleExtractor::processPoints() {
-  prev_segments_ = move(segments_);
+  prev_segments_.push_front(move(segments_));
+  if (prev_segments_.size() > p_prev_seg_buffer_size_)
+    prev_segments_.pop_back();
+  
   segments_.clear();
   circles_.clear();
 
@@ -310,18 +314,20 @@ bool ObstacleExtractor::checkSegmentShrinking(const Segment& segment, const tf::
     segment_transformed.last_point = transformPoint(segment.last_point, transform);
   }  
   vector<const Point*> to_check_for_colinearity;
-  for (auto s : prev_segments_) {
-    // If two endpoints of segment and s are close, check the other side of the segment for colinearity
-    if ((segment_transformed.first_point - s.first_point).length() < p_shrink_end_dist_ ||
-        (segment_transformed.first_point - s.last_point).length() < p_shrink_end_dist_)
-          to_check_for_colinearity.push_back(&segment_transformed.last_point);
-    if ((segment_transformed.last_point - s.first_point).length() < p_shrink_end_dist_ ||
-        (segment_transformed.last_point - s.last_point).length() < p_shrink_end_dist_)
-          to_check_for_colinearity.push_back(&segment_transformed.first_point);
-    for (auto p : to_check_for_colinearity) {
+  for (auto segment_list : prev_segments_) {
+    for (auto s : segment_list) {
+      // If two endpoints of segment and s are close, check the other side of the segment for colinearity
+      if ((segment_transformed.first_point - s.first_point).length() < p_shrink_end_dist_ ||
+          (segment_transformed.first_point - s.last_point).length() < p_shrink_end_dist_)
+            to_check_for_colinearity.push_back(&segment_transformed.last_point);
+      if ((segment_transformed.last_point - s.first_point).length() < p_shrink_end_dist_ ||
+          (segment_transformed.last_point - s.last_point).length() < p_shrink_end_dist_)
+            to_check_for_colinearity.push_back(&segment_transformed.first_point);
+      for (auto p : to_check_for_colinearity) {
         if (s.distanceTo(*p) < p_shrink_colinear_dist_ && s.isBetweenEndpoints(*p, p_shrink_between_tol_))
-        return true;
-    }  
+          return true;
+      }  
+    }
   }
   return false;
 }

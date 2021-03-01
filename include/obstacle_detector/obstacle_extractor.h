@@ -47,6 +47,8 @@
 #include "obstacle_detector/utilities/circle.h"
 #include "obstacle_detector/utilities/point_set.h"
 
+#include <deque>
+
 namespace obstacle_detector
 {
 
@@ -92,7 +94,7 @@ private:
 
   std::list<Point> input_points_;
   std::list<Segment> segments_;
-  std::list<Segment> prev_segments_;
+  std::deque<std::list<Segment>> prev_segments_;
   std::list<Circle> circles_;
 
   // Parameters
@@ -115,6 +117,7 @@ private:
   double p_max_merge_spread_;
   double p_max_circle_radius_;
   double p_radius_enlargement_;
+  double p_prev_seg_buffer_size_;
   double p_shrink_end_dist_;
   double p_shrink_colinear_dist_;
   double p_shrink_between_tol_;
