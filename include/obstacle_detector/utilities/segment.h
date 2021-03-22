@@ -113,7 +113,7 @@ public:
     Point b = p - first_point;
     Point c = p - last_point;
     double t = a.dot(b) / a.lengthSquared();
-    return t > 0.0-tol && t < 1.0+tol;
+    return t > 0.0 - tol && t < 1.0 + tol;
   }
 
 
