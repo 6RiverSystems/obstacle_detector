@@ -111,7 +111,6 @@ public:
     // Checks if point is between segment endpings (within a tolerance to account for noise)
     Point a = last_point - first_point;
     Point b = p - first_point;
-    Point c = p - last_point;
     double t = a.dot(b) / a.lengthSquared();
     return t > 0.0 - tol && t < 1.0 + tol;
   }
