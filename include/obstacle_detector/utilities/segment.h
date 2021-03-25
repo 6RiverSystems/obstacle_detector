@@ -108,7 +108,7 @@ public:
   }
 
   bool isBetweenEndpoints(const Point& p, double tol) const {
-    // Checks if point is between segment endpings (within a tolerance to account for noise)
+    // Checks if point is between segment endpoints (within a tolerance to account for noise)
     // a: vector from first_point to last_point; b: vector from first_point to query point, p;
     // t: scalar of projection of b onto a (0 <= t <= 1 if p is between first_point and last_point)
     Point a = last_point - first_point;
