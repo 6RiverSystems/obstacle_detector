@@ -61,6 +61,7 @@ bool ObstacleExtractor::updateParams(std_srvs::Empty::Request &req, std_srvs::Em
   nh_local_.param<bool>("circles_from_visibles", p_circles_from_visibles_, true);
   nh_local_.param<bool>("discard_converted_segments", p_discard_converted_segments_, true);
   nh_local_.param<bool>("transform_coordinates", p_transform_coordinates_, true);
+  nh_local_.param<bool>("check_shrinking_segments", p_check_shrinking_segments_, true);
 
   nh_local_.param<int>("min_group_points", p_min_group_points_, 5);
 
@@ -71,6 +72,10 @@ bool ObstacleExtractor::updateParams(std_srvs::Empty::Request &req, std_srvs::Em
   nh_local_.param<double>("max_merge_spread", p_max_merge_spread_, 0.2);
   nh_local_.param<double>("max_circle_radius", p_max_circle_radius_, 0.6);
   nh_local_.param<double>("radius_enlargement", p_radius_enlargement_, 0.25);
+  nh_local_.param<double>("prev_seg_buffer_size", p_prev_seg_buffer_size_, 3);
+  nh_local_.param<double>("shrink_end_dist", p_shrink_end_dist_, 0.05);
+  nh_local_.param<double>("shrink_colinear_dist", p_shrink_colinear_dist_, 0.1);
+  nh_local_.param<double>("shrink_between_tol", p_shrink_between_tol_, 0.05);
 
   nh_local_.param<double>("min_x_limit", p_min_x_limit_, -10.0);
   nh_local_.param<double>("max_x_limit", p_max_x_limit_,  10.0);
@@ -131,6 +136,11 @@ void ObstacleExtractor::pclCallback(const sensor_msgs::PointCloud::ConstPtr pcl_
 }
 
 void ObstacleExtractor::processPoints() {
+  prev_segments_.push_front(move(segments_));
+  if (prev_segments_.size() > p_prev_seg_buffer_size_) {
+    prev_segments_.pop_back();
+  }
+  
   segments_.clear();
   circles_.clear();
 
@@ -298,6 +308,33 @@ bool ObstacleExtractor::checkSegmentsCollinearity(const Segment& segment, const 
           segment.distanceTo(s2.last_point)  < p_max_merge_spread_);
 }
 
+bool ObstacleExtractor::checkSegmentShrinking(const Segment& segment, const tf::StampedTransform& transform) {
+  Segment segment_transformed = segment;
+  if (p_transform_coordinates_) {
+    segment_transformed.first_point = transformPoint(segment.first_point, transform);
+    segment_transformed.last_point = transformPoint(segment.last_point, transform);
+  }  
+  vector<const Point*> to_check_for_colinearity;
+  for (const auto & segment_list : prev_segments_) {
+    for (const auto & s : segment_list) {
+      // If two endpoints of segment and s are close, check the other side of the segment for colinearity
+      if ((segment_transformed.first_point - s.first_point).length() < p_shrink_end_dist_ ||
+          (segment_transformed.first_point - s.last_point).length() < p_shrink_end_dist_) {
+            to_check_for_colinearity.push_back(&segment_transformed.last_point);
+      }
+      if ((segment_transformed.last_point - s.first_point).length() < p_shrink_end_dist_ ||
+          (segment_transformed.last_point - s.last_point).length() < p_shrink_end_dist_) {
+            to_check_for_colinearity.push_back(&segment_transformed.first_point);
+      }
+      for (auto p : to_check_for_colinearity) {
+        if (s.distanceTo(*p) < p_shrink_colinear_dist_ && s.isBetweenEndpoints(*p, p_shrink_between_tol_))
+          return true;
+      }  
+    }
+  }
+  return false;
+}
+
 void ObstacleExtractor::detectCircles() {
   for (auto segment = segments_.begin(); segment != segments_.end(); ++segment) {
     if (p_circles_from_visibles_) {
@@ -315,7 +352,21 @@ void ObstacleExtractor::detectCircles() {
     Circle circle(*segment);
     circle.radius += p_radius_enlargement_;
 
-    if (circle.radius < p_max_circle_radius_) {
+    // If checking for shrinking segments, create a transform to get new segments in the correct
+    // frame (prev_segments_ already transformed at time of publishing)
+    tf::StampedTransform transform;
+    if (p_transform_coordinates_ && p_check_shrinking_segments_) {
+      try {
+        tf_listener_.waitForTransform(p_frame_id_, base_frame_id_, stamp_, ros::Duration(0.1));
+        tf_listener_.lookupTransform(p_frame_id_, base_frame_id_, stamp_, transform);
+      }
+      catch (tf::TransformException& ex) {
+        ROS_INFO_STREAM(ex.what());
+        return;
+      }
+    }
+
+    if (circle.radius < p_max_circle_radius_ && !checkSegmentShrinking(*segment, transform)) {
       circles_.push_back(circle);
 
       if (p_discard_converted_segments_) {
