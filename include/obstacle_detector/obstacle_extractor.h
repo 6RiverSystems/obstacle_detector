@@ -47,6 +47,8 @@
 #include "obstacle_detector/utilities/circle.h"
 #include "obstacle_detector/utilities/point_set.h"
 
+#include <deque>
+
 namespace obstacle_detector
 {
 
@@ -72,6 +74,7 @@ private:
   bool compareSegments(const Segment& s1, const Segment& s2, Segment& merged_segment);
   bool checkSegmentsProximity(const Segment& s1, const Segment& s2);
   bool checkSegmentsCollinearity(const Segment& segment, const Segment& s1, const Segment& s2);
+  bool checkSegmentShrinking(const Segment& segment, const tf::StampedTransform& transform);
 
   void detectCircles();
   void mergeCircles();
@@ -91,6 +94,7 @@ private:
 
   std::list<Point> input_points_;
   std::list<Segment> segments_;
+  std::deque<std::list<Segment>> prev_segments_;
   std::list<Circle> circles_;
 
   // Parameters
@@ -103,6 +107,7 @@ private:
   bool p_discard_converted_segments_;
   bool p_transform_coordinates_;
   bool p_filter_by_distance_;
+  bool p_check_shrinking_segments_;
   int p_min_group_points_;
 
   double p_distance_proportion_;
@@ -112,6 +117,10 @@ private:
   double p_max_merge_spread_;
   double p_max_circle_radius_;
   double p_radius_enlargement_;
+  double p_prev_seg_buffer_size_;
+  double p_shrink_end_dist_;
+  double p_shrink_colinear_dist_;
+  double p_shrink_between_tol_;
 
   double p_min_x_limit_;
   double p_max_x_limit_;
